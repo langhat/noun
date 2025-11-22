@@ -4,14 +4,11 @@ import re
 import json
 import subprocess
 from openai import OpenAI
-from apikey import api_key
+from resources import *
 import ctypes
 import time
 import ctypes
 import time
-
-api_url = "https://api.suanli.cn/v1"
-modelID = "free:Qwen3-30B-A3B"
 
 # 初始化对话历史
 chated = [
