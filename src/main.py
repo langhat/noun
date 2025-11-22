@@ -5,6 +5,10 @@ import json
 import subprocess
 from openai import OpenAI
 from apikey import api_key
+import ctypes
+import time
+import ctypes
+import time
 
 api_url = "https://api.suanli.cn/v1"
 modelID = "free:Qwen3-30B-A3B"
@@ -12,7 +16,7 @@ modelID = "free:Qwen3-30B-A3B"
 # 初始化对话历史
 chated = [
     {'role': 'system', 'content': '''
-- 你是一个AI智能体，你可以使用工具来操作电脑，一次只能调用一个工具
+- 你是一个AI智能体，你可以使用工具来操作电脑，一次只能调用一个工具(注意!!!只能调用一个工具!!!)
 - 使用工具时要用<AgentToolsCall></AgentToolsCall>包裹
 工具介绍:
 # 列出目录：
@@ -165,92 +169,116 @@ def color_print(text, color_code):
     """打印带颜色的文本"""
     print(f"\033[{color_code}m{text}\033[0m")
 
+def show_notification(title, message):
+    """显示Windows系统通知"""
+    # 使用Windows API显示通知
+    ctypes.windll.user32.MessageBoxW(0, message, title, 0x40 | 0x1)
+    # 也可以使用其他方式显示通知，这里使用简单的消息框
+
+def show_notification(title, message):
+    """显示Windows系统通知"""
+    # 使用Windows API显示通知
+    ctypes.windll.user32.MessageBoxW(0, message, title, 0x40 | 0x1)
+    # 也可以使用其他方式显示通知，这里使用简单的消息框
+
 if __name__ == '__main__':
-    user_input = input("Agent ??>@ ") + "任务完成后请麻烦使用TaskDone工具结束并提交任务报告"
-    chated.append({'role': 'user', 'content': user_input})
     while True:
-        chatedmsg = get_response(chated=chated)
-        
-        retID, tool_msg = GetAgentCall(chatedmsg)
-        rus_to_agent = ""
-        
-        if retID == 1:
-            try:
-                tool_msg = json.loads(tool_msg)
-                if tool_msg["name"] == "ListDir":
-                    user_return = input(f"\nAI想列出 {tool_msg['Path']} 目录下的文件是否同意 (y/n): ")
-
-                    if user_return == "y":
-                        try:
-                            rus1 = os.listdir(tool_msg["Path"])
-                            rus2 = {
-                                "path": tool_msg["Path"],
-                                "files": []
-                            }
-                            for file in rus1:
-                                full_path = os.path.join(tool_msg["Path"], file)
-                                if os.path.isfile(full_path):
-                                    rus2["files"].append({"name": file, "type": "file"})
-                                elif os.path.isdir(full_path):
-                                    rus2["files"].append({"name": file, "type": "folder"})
-                                else:
-                                    rus2["files"].append({"name": file, "type": "无法判断"})
-                            rus_to_agent = json.dumps(rus2, ensure_ascii=False, indent=4)
-                        except Exception as e:
-                            rus_to_agent = f"访问目录失败: {str(e)}"
-                    else:
-                        ret = input("\n你拒绝了AI的请求，请给出建议：")
-                        rus_to_agent = f"用户拒绝了你的请求并给出了以下建议: {ret}"
-                
-                elif tool_msg["name"] == "ReadFile":
-                    result = ReadFile(tool_msg["Path"])
-                    rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
-                
-                elif tool_msg["name"] == "WriteFileDiff":
-                    user_return = input(f"\nAI想将内容写入文件: '{tool_msg["Path"]}'，模式为 '{tool_msg.get("Mode", "append")}'，是否同意 (y/n): ")
-
-                    if user_return == "y":
-                        result = WriteFileDiff(tool_msg["Path"], tool_msg["Content"], tool_msg.get("Mode", "append"))
-                        rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
-                    else:
-                        ret = input("\n你拒绝了AI的请求，请给出建议：")
-                        rus_to_agent = f"用户拒绝了你的请求并给出了以下建议: {ret}"
-                
-                elif tool_msg["name"] == "SearchFile":
-                    result = SearchFile(tool_msg["Path"], tool_msg["Pattern"])
-                    rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
-                
-                elif tool_msg["name"] == "SearchContent":
-                    result = SearchContent(tool_msg["Path"], tool_msg["Pattern"])
-                    rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
-                
-                elif tool_msg["name"] == "RunCmd":
-                    user_return = input(f"\nAI想运行命令: '{tool_msg["Command"]}' 是否同意 (y/n): ")
-
-                    if user_return == "y":
-                        result = RunCmd(tool_msg["Command"])
-                        if result["status"] == "success":
-                            color_print("✅ 命令执行成功:", "32")
-                            color_print("STDOUT:\n" + result["stdout"], "32")
-                            color_print("STDERR:\n" + result["stderr"], "31")
-                        else:
-                            color_print("❌ 命令执行失败:", "31")
-                            color_print("STDOUT:\n" + result["stdout"], "31")
-                            color_print("STDERR:\n" + result["stderr"], "31")
-                        rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
-                    else:
-                        ret = input("\n你拒绝了AI的请求，请给出建议：")
-                        rus_to_agent = f"用户拒绝了你的请求并给出了以下建议: {ret}"
-                
-                elif tool_msg["name"] == "TaskDone":
-                    print(f"\nAI 完成了任务, 给出以下总结:\n{tool_msg['msg']}")
-                    break
+        user_input = input("Agent ??>@ ") + ",任务完成后请麻烦使用TaskDone工具结束并提交任务报告"
+        if user_input == "exit,任务完成后请麻烦使用TaskDone工具结束并提交任务报告":
+            break
+        chated.append({'role': 'user', 'content': user_input})
+        while True:
+            chatedmsg = get_response(chated=chated)
             
-            except Exception as e:
-                rus_to_agent = f"解析工具调用失败: {str(e)}"
-        else:
-            print("AI未调用任何工具", flush=True)
-        
-        chated.append({"role": "assistant", "content": chatedmsg})
-        chated.append({"role": "user", "content": f"你调用了工具，工具返回：{rus_to_agent}"})
+            retID, tool_msg = GetAgentCall(chatedmsg)
+            rus_to_agent = ""
+            
+            if retID == 1:
+                # 显示工具调用通知
+                try:
+                    tool_data = json.loads(tool_msg)
+                    tool_name = tool_data.get("name", "未知工具")
+                    show_notification("AI工具调用通知", f"AI正在使用 {tool_name} 工具")
+                except:
+                    show_notification("AI工具调用通知", "AI正在使用工具")
+            
+            if retID == 1:
+                try:
+                    tool_msg = json.loads(tool_msg)
+                    if tool_msg["name"] == "ListDir":
+                        user_return = input(f"\nAI想列出 {tool_msg['Path']} 目录下的文件是否同意 (y/n): ")
+
+                        if user_return == "y":
+                            try:
+                                rus1 = os.listdir(tool_msg["Path"])
+                                rus2 = {
+                                    "path": tool_msg["Path"],
+                                    "files": []
+                                }
+                                for file in rus1:
+                                    full_path = os.path.join(tool_msg["Path"], file)
+                                    if os.path.isfile(full_path):
+                                        rus2["files"].append({"name": file, "type": "file"})
+                                    elif os.path.isdir(full_path):
+                                        rus2["files"].append({"name": file, "type": "folder"})
+                                    else:
+                                        rus2["files"].append({"name": file, "type": "无法判断"})
+                                rus_to_agent = json.dumps(rus2, ensure_ascii=False, indent=4)
+                            except Exception as e:
+                                rus_to_agent = f"访问目录失败: {str(e)}"
+                        else:
+                            ret = input("\n你拒绝了AI的请求，请给出建议：")
+                            rus_to_agent = f"用户拒绝了你的请求并给出了以下建议: {ret}"
+                    
+                    elif tool_msg["name"] == "ReadFile":
+                        result = ReadFile(tool_msg["Path"])
+                        rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
+                    
+                    elif tool_msg["name"] == "WriteFileDiff":
+                        user_return = input(f"\nAI想将内容写入文件: '{tool_msg["Path"]}'，模式为 '{tool_msg.get("Mode", "append")}'，是否同意 (y/n): ")
+
+                        if user_return == "y":
+                            result = WriteFileDiff(tool_msg["Path"], tool_msg["Content"], tool_msg.get("Mode", "append"))
+                            rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
+                        else:
+                            ret = input("\n你拒绝了AI的请求，请给出建议：")
+                            rus_to_agent = f"用户拒绝了你的请求并给出了以下建议: {ret}"
+                    
+                    elif tool_msg["name"] == "SearchFile":
+                        result = SearchFile(tool_msg["Path"], tool_msg["Pattern"])
+                        rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
+                    
+                    elif tool_msg["name"] == "SearchContent":
+                        result = SearchContent(tool_msg["Path"], tool_msg["Pattern"])
+                        rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
+                    
+                    elif tool_msg["name"] == "RunCmd":
+                        user_return = input(f"\nAI想运行命令: '{tool_msg["Command"]}' 是否同意 (y/n): ")
+
+                        if user_return == "y":
+                            result = RunCmd(tool_msg["Command"])
+                            if result["status"] == "success":
+                                color_print("✅ 命令执行成功:", "32")
+                                color_print("STDOUT:\n" + result["stdout"], "32")
+                                color_print("STDERR:\n" + result["stderr"], "31")
+                            else:
+                                color_print("❌ 命令执行失败:", "31")
+                                color_print("STDOUT:\n" + result["stdout"], "31")
+                                color_print("STDERR:\n" + result["stderr"], "31")
+                            rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
+                        else:
+                            ret = input("\n你拒绝了AI的请求，请给出建议：")
+                            rus_to_agent = f"用户拒绝了你的请求并给出了以下建议: {ret}"
+                    
+                    elif tool_msg["name"] == "TaskDone":
+                        print(f"\nAI 完成了任务, 给出以下总结:\n{tool_msg['msg']}")
+                        break
+                
+                except Exception as e:
+                    rus_to_agent = f"解析工具调用失败: {str(e)}"
+            else:
+                print("AI未调用任何工具", flush=True)
+            
+            chated.append({"role": "assistant", "content": chatedmsg})
+            chated.append({"role": "user", "content": f"你调用了工具，工具返回：{rus_to_agent}"})
 #copy from https://gitee.com/colid/ai
