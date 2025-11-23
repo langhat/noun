@@ -62,6 +62,21 @@ chated = [
     "name":"TaskDone",
     "msg":"<完成任务后的总结>"
 }
+注:
+- 调用工具时，必须包裹在<AgentToolsCall></AgentToolsCall>中
+- 一次只能调用一个工具
+- 调用完成后，必须等待工具执行完成，才能继续调用下一个工具
+- 一次只能调用一个工具
+- 调用完成后，必须等待工具执行完成，才能继续调用下一个工具
+- 一次只能调用一个工具
+- 调用完成后，必须等待工具执行完成，才能继续调用下一个工具
+- 调用TaskDone后，任务完成，对话结束
+- 任务完成后，必须使用TaskDone工具结束任务，否则对话将继续进行
+- 任务完成后，必须使用TaskDone工具提交任务报告，否则任务将被视为未完成
+- 任务完成后，必须使用TaskDone工具结束任务，否则对话将继续进行
+- 任务完成后，必须使用TaskDone工具提交任务报告，否则任务将被视为未完成
+- 任务完成后，必须使用TaskDone工具结束任务，否则对话将继续进行
+- 任务完成后，必须使用TaskDone工具提交任务报告，否则任务将被视为未完成
 '''}
 ]
 
@@ -167,21 +182,58 @@ def color_print(text, color_code):
     print(f"\033[{color_code}m{text}\033[0m")
 
 def show_notification(title, message):
-    """显示Windows系统通知"""
-    # 使用Windows API显示通知
-    ctypes.windll.user32.MessageBoxW(0, message, title, 0x40 | 0x1)
-    # 也可以使用其他方式显示通知，这里使用简单的消息框
-
-def show_notification(title, message):
-    """显示Windows系统通知"""
-    # 使用Windows API显示通知
-    ctypes.windll.user32.MessageBoxW(0, message, title, 0x40 | 0x1)
-    # 也可以使用其他方式显示通知，这里使用简单的消息框
+    """在Windows右下角显示弹出通知"""
+    # 简化的NOTIFYICONDATA结构体
+    class NOTIFYICONDATA(ctypes.Structure):
+        _fields_ = [
+            ('cbSize', ctypes.c_uint),
+            ('hWnd', ctypes.c_void_p),
+            ('uID', ctypes.c_uint),
+            ('uFlags', ctypes.c_uint),
+            ('uCallbackMessage', ctypes.c_uint),
+            ('hIcon', ctypes.c_void_p),
+            ('szTip', ctypes.c_wchar * 128),
+            ('dwState', ctypes.c_uint),
+            ('dwStateMask', ctypes.c_uint),
+            ('szInfo', ctypes.c_wchar * 256),
+            ('uTimeoutOrVersion', ctypes.c_uint),
+            ('szInfoTitle', ctypes.c_wchar * 64),
+            ('dwInfoFlags', ctypes.c_uint)
+        ]
+    
+    # 定义常量
+    NIM_ADD = 0x00000000
+    NIF_INFO = 0x00000010
+    NIF_ICON = 0x00000002
+    NIF_TIP = 0x00000001
+    
+    # 创建结构体实例
+    nid = NOTIFYICONDATA()
+    nid.cbSize = ctypes.sizeof(nid)
+    nid.hWnd = 0
+    nid.uID = 100  # 使用固定ID便于识别
+    nid.uFlags = NIF_ICON | NIF_TIP | NIF_INFO
+    
+    # 使用默认应用程序图标
+    try:
+        nid.hIcon = ctypes.windll.user32.LoadIconW(0, 32512)  # IDI_APPLICATION图标
+    except Exception:
+        nid.hIcon = 0  # 如果无法加载图标，设为0
+    
+    # 设置通知内容
+    nid.szTip = "AI 助手通知"  # 托盘图标悬停提示
+    nid.szInfoTitle = title  # 通知标题
+    nid.szInfo = message    # 通知内容
+    nid.uTimeoutOrVersion = 5000  # 通知显示时间（毫秒）
+    
+    # 显示通知（不立即删除，让它自然消失）
+    ctypes.windll.shell32.Shell_NotifyIconW(NIM_ADD, ctypes.byref(nid))
 
 if __name__ == '__main__':
+    show_notification("AI 助手", "欢迎使用AI助手")
     while True:
-        user_input = input("Agent ??>@ ") + ",任务完成后请麻烦使用TaskDone工具结束并提交任务报告"
-        if user_input == "exit,任务完成后请麻烦使用TaskDone工具结束并提交任务报告":
+        user_input = input("Agent ??>@ ")
+        if user_input == "exit":
             break
         chated.append({'role': 'user', 'content': user_input})
         while True:
@@ -191,18 +243,11 @@ if __name__ == '__main__':
             rus_to_agent = ""
             
             if retID == 1:
-                # 显示工具调用通知
-                try:
-                    tool_data = json.loads(tool_msg)
-                    tool_name = tool_data.get("name", "未知工具")
-                    show_notification("AI工具调用通知", f"AI正在使用 {tool_name} 工具")
-                except:
-                    show_notification("AI工具调用通知", "AI正在使用工具")
-            
-            if retID == 1:
                 try:
                     tool_msg = json.loads(tool_msg)
                     if tool_msg["name"] == "ListDir":
+                        # 在需要用户确认的操作前显示通知
+                        show_notification("需要您的确认", f"AI想要列出 {tool_msg['Path']} 目录下的文件")
                         user_return = input(f"\nAI想列出 {tool_msg['Path']} 目录下的文件是否同意 (y/n): ")
 
                         if user_return == "y":
@@ -232,6 +277,8 @@ if __name__ == '__main__':
                         rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
                     
                     elif tool_msg["name"] == "WriteFileDiff":
+                        # 在需要用户确认的操作前显示通知
+                        show_notification("需要您的确认", f"AI想要将内容写入文件: '{tool_msg['Path']}'，模式为 '{tool_msg.get('Mode', 'append')}'")
                         user_return = input(f"\nAI想将内容写入文件: '{tool_msg["Path"]}'，模式为 '{tool_msg.get("Mode", "append")}'，是否同意 (y/n): ")
 
                         if user_return == "y":
@@ -250,6 +297,8 @@ if __name__ == '__main__':
                         rus_to_agent = json.dumps(result, ensure_ascii=False, indent=4)
                     
                     elif tool_msg["name"] == "RunCmd":
+                        # 在需要用户确认的操作前显示通知
+                        show_notification("需要您的确认", f"AI想要运行命令: '{tool_msg['Command']}'")
                         user_return = input(f"\nAI想运行命令: '{tool_msg["Command"]}' 是否同意 (y/n): ")
 
                         if user_return == "y":
