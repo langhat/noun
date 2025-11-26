@@ -279,7 +279,7 @@ if __name__ == '__main__':
                     elif tool_msg["name"] == "WriteFileDiff":
                         # 在需要用户确认的操作前显示通知
                         show_notification("需要您的确认", f"AI想要将内容写入文件: '{tool_msg['Path']}'，模式为 '{tool_msg.get('Mode', 'append')}'")
-                        user_return = input(f"\nAI想将内容写入文件: '{tool_msg["Path"]}'，模式为 '{tool_msg.get("Mode", "append")}'，是否同意 (y/n): ")
+                        user_return = input(f"\nAI想将内容写入文件: \"{tool_msg['Path']}\"，模式为 \"{tool_msg.get('Mode', 'append')}\"，是否同意 (y/n): ")
 
                         if user_return == "y":
                             result = WriteFileDiff(tool_msg["Path"], tool_msg["Content"], tool_msg.get("Mode", "append"))
@@ -299,7 +299,7 @@ if __name__ == '__main__':
                     elif tool_msg["name"] == "RunCmd":
                         # 在需要用户确认的操作前显示通知
                         show_notification("需要您的确认", f"AI想要运行命令: '{tool_msg['Command']}'")
-                        user_return = input(f"\nAI想运行命令: '{tool_msg["Command"]}' 是否同意 (y/n): ")
+                        user_return = input(f"\nAI想运行命令: \'{tool_msg['Command']}\' 是否同意 (y/n): ")
 
                         if user_return == "y":
                             result = RunCmd(tool_msg["Command"])
