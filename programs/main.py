@@ -9,75 +9,15 @@ import ctypes
 import time
 import ctypes
 import time
+from commands import *
+from show_notification import *
 
 # 初始化对话历史
+ai_system = ''
+with open('system.txt', 'r', encoding='utf-8') as f:
+    ai_system = f.read()
 chated = [
-    {'role': 'system', 'content': '''
-- 你是一个AI智能体，你可以使用工具来操作电脑，一次只能调用一个工具(注意!!!只能调用一个工具!!!)
-- 使用工具时要用<AgentToolsCall></AgentToolsCall>包裹
-工具介绍:
-# 列出目录：
-## 调用方式
-{
-    "name":"ListDir",
-    "Path":"<要查看的目录>",
-}
-# 读取文件：
-## 调用方式
-{
-    "name":"ReadFile",
-    "Path":"<要读取的文件路径>",
-}
-# 写入文件（使用diff方式）：
-## 调用方式
-{
-    "name":"WriteFileDiff",
-    "Path":"<要写入的文件路径>",
-    "Content":"<要写入的内容>",
-    "Mode":"append" 或 "replace"
-}
-# 文件搜索：
-## 调用方式
-{
-    "name":"SearchFile",
-    "Path":"<要搜索的目录>",
-    "Pattern":"<搜索模式>",
-}
-# 文件内容搜索：
-## 调用方式
-{
-    "name":"SearchContent",
-    "Path":"<要搜索的文件路径>",
-    "Pattern":"<搜索模式>",
-}
-# 运行 cmd 命令：
-## 调用方式
-{
-    "name":"RunCmd",
-    "Command":"<要执行的命令>",
-}
-# 完成任务
-## 调用方式
-{
-    "name":"TaskDone",
-    "msg":"<完成任务后的总结>"
-}
-注:
-- 调用工具时，必须包裹在<AgentToolsCall></AgentToolsCall>中
-- 一次只能调用一个工具
-- 调用完成后，必须等待工具执行完成，才能继续调用下一个工具
-- 一次只能调用一个工具
-- 调用完成后，必须等待工具执行完成，才能继续调用下一个工具
-- 一次只能调用一个工具
-- 调用完成后，必须等待工具执行完成，才能继续调用下一个工具
-- 调用TaskDone后，任务完成，对话结束
-- 任务完成后，必须使用TaskDone工具结束任务，否则对话将继续进行
-- 任务完成后，必须使用TaskDone工具提交任务报告，否则任务将被视为未完成
-- 任务完成后，必须使用TaskDone工具结束任务，否则对话将继续进行
-- 任务完成后，必须使用TaskDone工具提交任务报告，否则任务将被视为未完成
-- 任务完成后，必须使用TaskDone工具结束任务，否则对话将继续进行
-- 任务完成后，必须使用TaskDone工具提交任务报告，否则任务将被视为未完成
-'''}
+    {'role': 'system', 'content': ai_system}
 ]
 
 def GetAgentCall(text):
@@ -90,68 +30,6 @@ def GetAgentCall(text):
         return 1, content
     else:
         return 0, None
-
-def ReadFile(path):
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        return {"status": "success", "content": content}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-def WriteFileDiff(path, content, mode="append"):
-    try:
-        if mode == "append":
-            with open(path, 'r', encoding='utf-8') as f:
-                existing_content = f.read()
-            new_content = existing_content + "\n" + content
-        elif mode == "replace":
-            new_content = content
-        else:
-            return {"status": "error", "message": "无效的模式: 必须是 'append' 或 'replace'"}
-
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-        return {"status": "success", "message": "文件已成功写入"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-def SearchFile(path, pattern):
-    try:
-        files = glob.glob(os.path.join(path, pattern))
-        return {"status": "success", "files": files}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-def SearchContent(path, pattern):
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        matches = re.findall(pattern, content)
-        return {"status": "success", "matches": matches}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-def RunCmd(command):
-    try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        return {
-            "status": "success",
-            "stdout": result.stdout,
-            "stderr": result.stderr
-        }
-    except subprocess.CalledProcessError as e:
-        return {
-            "status": "error",
-            "stdout": e.stdout,
-            "stderr": e.stderr
-        }
 
 def get_response(chated):
     client = OpenAI(
@@ -180,54 +58,6 @@ def get_response(chated):
 def color_print(text, color_code):
     """打印带颜色的文本"""
     print(f"\033[{color_code}m{text}\033[0m")
-
-def show_notification(title, message):
-    """在Windows右下角显示弹出通知"""
-    # 简化的NOTIFYICONDATA结构体
-    class NOTIFYICONDATA(ctypes.Structure):
-        _fields_ = [
-            ('cbSize', ctypes.c_uint),
-            ('hWnd', ctypes.c_void_p),
-            ('uID', ctypes.c_uint),
-            ('uFlags', ctypes.c_uint),
-            ('uCallbackMessage', ctypes.c_uint),
-            ('hIcon', ctypes.c_void_p),
-            ('szTip', ctypes.c_wchar * 128),
-            ('dwState', ctypes.c_uint),
-            ('dwStateMask', ctypes.c_uint),
-            ('szInfo', ctypes.c_wchar * 256),
-            ('uTimeoutOrVersion', ctypes.c_uint),
-            ('szInfoTitle', ctypes.c_wchar * 64),
-            ('dwInfoFlags', ctypes.c_uint)
-        ]
-    
-    # 定义常量
-    NIM_ADD = 0x00000000
-    NIF_INFO = 0x00000010
-    NIF_ICON = 0x00000002
-    NIF_TIP = 0x00000001
-    
-    # 创建结构体实例
-    nid = NOTIFYICONDATA()
-    nid.cbSize = ctypes.sizeof(nid)
-    nid.hWnd = 0
-    nid.uID = 100  # 使用固定ID便于识别
-    nid.uFlags = NIF_ICON | NIF_TIP | NIF_INFO
-    
-    # 使用默认应用程序图标
-    try:
-        nid.hIcon = ctypes.windll.user32.LoadIconW(0, 32512)  # IDI_APPLICATION图标
-    except Exception:
-        nid.hIcon = 0  # 如果无法加载图标，设为0
-    
-    # 设置通知内容
-    nid.szTip = "AI 助手通知"  # 托盘图标悬停提示
-    nid.szInfoTitle = title  # 通知标题
-    nid.szInfo = message    # 通知内容
-    nid.uTimeoutOrVersion = 5000  # 通知显示时间（毫秒）
-    
-    # 显示通知（不立即删除，让它自然消失）
-    ctypes.windll.shell32.Shell_NotifyIconW(NIM_ADD, ctypes.byref(nid))
 
 if __name__ == '__main__':
     show_notification("AI 助手", "欢迎使用AI助手")
